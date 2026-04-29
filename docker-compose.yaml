@@ -1,0 +1,85 @@
+version: "3.8"
+services:
+  db:
+    image: mysql:8.0
+    restart: always
+    ports:
+
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=tlc
+      - MYSQL_USER=tlc
+      - MYSQL_PASSWORD=tlc
+    networks:
+      - app-network
+
+  etherpad:
+    image: etherpad/etherpad
+    ports:
+      - "9001:9001"
+    environment:
+      AUTHENTICATION_METHOD: "apikey"
+    volumes:
+      - ./api/APIKEY.txt:/opt/etherpad-lite/APIKEY.txt:ro
+    networks:
+      - app-network
+
+  mail:
+    image: bytemark/smtp
+    restart: always
+    ports:
+      - "2525:25"
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+
+
+      - "8080:8080"
+    environment:
+      - QUARKUS_DATASOURCE_JDBC_URL=jdbc:mysql://db:3306/tlc?useUnicode=true&serverTimezone=Europe/Paris
+      - QUARKUS_DATASOURCE_USERNAME=tlc
+      - QUARKUS_DATASOURCE_PASSWORD=tlc
+      - QUARKUS_MAILER_HOST=mail
+      - DOODLE_INTERNALPADURL=http://etherpad:9001/
+      - DOODLE_EXTERNALPADURL=http://localhost:9001/
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  pumba:
+    image: ghcr.io/alexei-led/pumba:latest
+    container_name: pumba
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Pour simuler le crash du backend (Option 1) :
+    # command: --interval=1m kill "re2:^doodlestudent-backend"
+    # Pour simuler la latence (Option 2) :
+    command: netem --duration 1h delay --time 3000 "re2:^doodlestudent-backend"
+
+
+
+
+
+networks:
+
+  app-network:
+    driver: bridge
