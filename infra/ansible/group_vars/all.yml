@@ -1,0 +1,22 @@
+# Configuration Base de Données
+db_name: tlc
+db_user: tlc
+db_password: tlc
+db_root_password: root
+
+# Configuration Réseau
+front_port: 4200
+back_port: 8080
+etherpad_port: 9001
+
+# URLs de l'application
+backend_url: "http://backend:8080"
+internal_pad_url: "http://etherpad:9001/"
+external_pad_url: "http://localhost:9001/"
+
+# Chaos Engineering
+chaos_interval: 1m
+latency_time: 3000
+
+# Chemin de déploiement sur le serveur
+project_path: "/opt/doodlestudent"

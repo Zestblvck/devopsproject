@@ -1,0 +1,35 @@
+---
+- name: Deploiement DoodleStudent
+  hosts: app_servers
+  become: false
+
+  tasks:
+    - name: Verifier Docker
+      command: docker --version
+      register: docker_check
+      changed_when: false
+
+    - name: Rapport version Docker
+      debug:
+        msg: "Docker version: {{ docker_check.stdout }}"
+
+    - name: Creation repertoire projet
+      file:
+        path: "{{ project_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Generation fichier configuration .env
+      template:
+        src: templates/.env.j2
+        dest: "../../.env"
+
+    - name: Lancement services Docker Compose
+      command: docker compose up -d
+      args:
+        chdir: "../../"
+      register: compose_output
+
+    - name: Statut final
+      debug:
+        msg: "Deploiement termine."

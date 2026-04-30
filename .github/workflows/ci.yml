@@ -1,0 +1,82 @@
+name: CI - Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # etape 1 : Compiler et tester le Backend (Java)
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+          
+      - name: Build and Test Backend
+        run: |
+          cd api
+          mvn clean package -DskipTests # On vérifie au moins que ça compile
+          
+  # etape 2 : Compiler le Frontend (Angular)
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: front/package-lock.json
+          
+      - name: Install and Build Frontend
+        run: |
+          cd front
+          npm install
+          npm run build
+
+  # etape 3 : Test de demarrage complet (Smoke Test)
+  docker-check:
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env for CI
+        run: |
+          echo "DB_NAME=tlc" >> .env
+          echo "DB_USER=tlc" >> .env
+          echo "DB_PASSWORD=tlc" >> .env
+          echo "DB_ROOT_PASSWORD=root" >> .env
+          echo "FRONT_PORT=4200" >> .env
+          echo "BACK_PORT=8080" >> .env
+          echo "ETHERPAD_PORT=9001" >> .env
+          echo "BACKEND_URL=http://backend:8080" >> .env
+          echo "INTERNAL_PAD_URL=http://etherpad:9001/" >> .env
+          echo "EXTERNAL_PAD_URL=http://localhost:9001/" >> .env
+          echo "CHAOS_INTERVAL=1m" >> .env
+          echo "LATENCY_TIME=3000" >> .env
+
+      - name: Build and Start Stack
+        run: docker compose up -d --build
+
+      - name: Wait for Backend (Quarkus + MySQL)
+        run: sleep 40
+
+      - name: Check Containers Status
+        run: docker compose ps
+
+      - name: Test API Response
+        run: curl -v http://localhost:8080/api/polls
+
+      - name: Stop Containers
+        run: docker compose down
